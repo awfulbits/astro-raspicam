@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/awfulbits/astro-raspicam/config"
 	"github.com/dhowden/raspicam"
 )
 
@@ -101,11 +101,7 @@ type ImageSet struct {
 
 // Capture will use Set data to produce a set of images
 func (set *ImageSet) Capture() (capErr error) {
-	p, err := ImageSetsPath()
-	if err != nil {
-		return
-	}
-	setPath := filepath.Join(p, time.Now().Format("20060102150405"))
+	setPath := filepath.Join(config.C.ImageSetsPath, time.Now().Format("20060102150405"))
 	if _, err := os.Stat(setPath); os.IsNotExist(err) {
 		os.Mkdir(setPath, 0755)
 	}
@@ -117,7 +113,7 @@ func (set *ImageSet) Capture() (capErr error) {
 		for i := 0; i < ss.Reps; i++ {
 			var file *os.File
 			timestamp := time.Now().Format("20060102150405.000")
-			file, err = os.Create(filepath.Join(subsetPath, timestamp+".jpg"))
+			file, err := os.Create(filepath.Join(subsetPath, timestamp+".jpg"))
 			if err != nil {
 				return
 			}
@@ -138,37 +134,4 @@ func (set *ImageSet) Capture() (capErr error) {
 	}
 
 	return
-}
-
-type config struct {
-	ImageSetConfigsPath string `toml:"image_set_configs_path"`
-	ImageSetsPath       string `toml:"image_sets_path"`
-}
-
-// ImageSetConfigsPath returns the image set configs path from config.toml
-func ImageSetConfigsPath() (string, error) {
-	var conf config
-	if _, err := toml.DecodeFile("config.toml", &conf); err != nil {
-		return "", err
-	}
-
-	if _, err := os.Stat(conf.ImageSetConfigsPath); os.IsNotExist(err) {
-		os.Mkdir(conf.ImageSetConfigsPath, 0755)
-	}
-
-	return conf.ImageSetConfigsPath, nil
-}
-
-// ImageSetsPath returns the image sets path from config.toml
-func ImageSetsPath() (string, error) {
-	var conf config
-	if _, err := toml.DecodeFile("config.toml", &conf); err != nil {
-		return "", err
-	}
-
-	if _, err := os.Stat(conf.ImageSetsPath); os.IsNotExist(err) {
-		os.Mkdir(conf.ImageSetsPath, 0755)
-	}
-
-	return conf.ImageSetsPath, nil
 }

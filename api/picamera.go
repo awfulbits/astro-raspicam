@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/awfulbits/astro-raspicam/config"
 	"github.com/awfulbits/astro-raspicam/picamera"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
@@ -68,11 +69,7 @@ Helper functions
 ***************/
 
 func getImageSetConfigFile(id string) (sc *picamera.ImageSetConfig, err error) {
-	p, err := picamera.ImageSetConfigsPath()
-	if err != nil {
-		return
-	}
-	fpath := filepath.Join(p, id)
+	fpath := filepath.Join(config.C.ImageSetConfigsPath, id)
 	file, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		return

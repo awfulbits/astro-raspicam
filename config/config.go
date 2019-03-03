@@ -32,14 +32,14 @@ func (c *config) init() error {
 	exPath := filepath.Dir(ex)
 
 	if c.ImageSetConfigsPath == "" {
-		c.ImageSetConfigsPath = filepath.Join(exPath, "image_set_configs_path")
+		c.ImageSetConfigsPath = filepath.Join(exPath, "image_set_configs")
 	}
 	if err := checkDir(c.ImageSetConfigsPath); err != nil {
 		return err
 	}
 
 	if c.ImageSetsPath == "" {
-		c.ImageSetsPath = filepath.Join(exPath, "image_sets_path")
+		c.ImageSetsPath = filepath.Join(exPath, "image_sets")
 	}
 	if err := checkDir(c.ImageSetsPath); err != nil {
 		return err

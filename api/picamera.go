@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -75,6 +76,9 @@ func getImageSetConfigFile(id string) (sc *picamera.ImageSetConfig, err error) {
 		return
 	}
 	err = json.Unmarshal([]byte(file), &sc)
+	if sc.ID != id {
+		err = errors.New("")
+	}
 
 	return
 }

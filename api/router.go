@@ -15,8 +15,19 @@ func (a *api) createRouter() *chi.Mux {
 	r.Use(middleware.URLFormat)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
-	r.Route("/camera/{imageSetConfigID}", func(r chi.Router) {
-		r.With(a.loadImageSetConfig).Post("/capture", a.capture) // POST /camera/imageSetConfigID/capture
+	r.Route("/camera", func(r chi.Router) {
+		r.With(loadImageSetConfig).Post("/capture", a.capture) // POST /camera/imageSetConfigID/capture
+
+		r.Route("/configs", func(r chi.Router) {
+			r.Get("/", a.getImageSetConfigs)  // GET /camera/configs
+			r.Post("/", a.saveImageSetConfig) // POST /camera/configs
+
+			r.Route("/{imageSetConfigID}", func(r chi.Router) {
+				r.Use(loadImageSetConfig)       // Load the *ImageSetConfig on the request context
+				r.Get("/", a.getImageSetConfig) // GET /camera/configs/imageSetConfigID
+			})
+		})
+
 	})
 
 	return r
@@ -45,5 +56,13 @@ func errNotFound() *errResponse {
 	return &errResponse{
 		HTTPStatusCode: 404,
 		StatusText:     "Resource not found.",
+	}
+}
+
+func errInvalidRequest(err error) *errResponse {
+	return &errResponse{
+		HTTPStatusCode: 400,
+		StatusText:     "Invalid request.",
+		ErrorText:      err.Error(),
 	}
 }

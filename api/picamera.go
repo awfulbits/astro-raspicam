@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/awfulbits/astro-raspicam/config"
 	"github.com/awfulbits/astro-raspicam/picamera"
@@ -14,8 +17,40 @@ import (
 	"github.com/go-chi/render"
 )
 
+type key string
+
+const imageSetKey key = "imageSetConfig"
+
+type imageSetConfigR struct {
+	ImageSetConfig picamera.ImageSetConfig `json:"imageSetConfig"`
+}
+
+func (sr *imageSetConfigR) Bind(r *http.Request) error {
+	return nil
+}
+
+func (sr imageSetConfigR) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+func (a *api) saveImageSetConfig(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var imageSetConfigR imageSetConfigR
+	if err = render.Bind(r, &imageSetConfigR); err != nil {
+		render.Render(w, r, errInvalidRequest(err))
+		return
+	}
+
+	imageSetConfigR, err = saveImageSetConfigFile(imageSetConfigR.ImageSetConfig)
+	if err != nil {
+		render.Render(w, r, errInternalServer(err))
+		return
+	}
+
+	render.Render(w, r, imageSetConfigR)
+}
+
 func (a *api) capture(w http.ResponseWriter, r *http.Request) {
-	var imageSetKey key = "imageSetConfig"
 	imageSetConfig := r.Context().Value(imageSetKey).(*picamera.ImageSetConfig)
 	imageSet := imageSetConfig.Generate()
 	if !a.captureInProgress {
@@ -38,29 +73,57 @@ func (a *api) capture(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Capturing..."))
 }
 
+func (a *api) getImageSetConfig(w http.ResponseWriter, r *http.Request) {
+	imageSetConfig := r.Context().Value(imageSetKey).(picamera.ImageSetConfig)
+	render.Render(w, r, &imageSetConfigR{ImageSetConfig: imageSetConfig})
+}
+
+func (a *api) getImageSetConfigs(w http.ResponseWriter, r *http.Request) {
+	scs, err := getImageSetConfigs()
+	if err != nil {
+		render.Render(w, r, errInternalServer(err))
+		return
+	}
+
+	err = render.RenderList(w, r, scs)
+	if err != nil {
+		render.Render(w, r, errInternalServer(err))
+		return
+	}
+}
+
 /*********
 Middleware
 *********/
 
-type key string
+type imageSetConfigID struct {
+	ImageSetConfigID string `json:"imageSetConfigID,omitempty"`
+}
 
-func (a *api) loadImageSetConfig(next http.Handler) http.Handler {
+func (sr *imageSetConfigID) Bind(r *http.Request) error {
+	return nil
+}
+
+func loadImageSetConfig(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
-		var imageSetConfig *picamera.ImageSetConfig
-		if imageSetConfigID := chi.URLParam(r, "imageSetConfigID"); imageSetConfigID != "" {
-			imageSetConfig, err = getImageSetConfigFile(imageSetConfigID)
+		var imageSetConfigID imageSetConfigID
+		if id := chi.URLParam(r, "imageSetConfigID"); id != "" {
+			imageSetConfigID.ImageSetConfigID = id
 		} else {
-			render.Render(w, r, errNotFound())
-			return
+			if err = render.Bind(r, &imageSetConfigID); err != nil {
+				render.Render(w, r, errInvalidRequest(err))
+				return
+			}
 		}
+
+		imageSetConfig, err := getImageSetConfigFile(imageSetConfigID.ImageSetConfigID)
+		ctx := context.WithValue(r.Context(), imageSetKey, imageSetConfig)
 		if err != nil {
-			render.Render(w, r, errNotFound())
+			render.Render(w, r, errInternalServer(err))
 			return
 		}
 
-		var imageSetKey key = "imageSetConfig"
-		ctx := context.WithValue(r.Context(), imageSetKey, imageSetConfig)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -69,15 +132,51 @@ func (a *api) loadImageSetConfig(next http.Handler) http.Handler {
 Helper functions
 ***************/
 
-func getImageSetConfigFile(id string) (sc *picamera.ImageSetConfig, err error) {
+func saveImageSetConfigFile(sc picamera.ImageSetConfig) (scr imageSetConfigR, err error) {
+	if sc.ID == "" {
+		seededRand := rand.New(
+			rand.NewSource(time.Now().UnixNano()))
+		sc.ID = strconv.Itoa(seededRand.Int())
+	}
+
+	scJSON, err := json.Marshal(&sc)
+	fpath := filepath.Join(config.C.ImageSetConfigsPath, sc.ID)
+	err = ioutil.WriteFile(fpath, scJSON, 0644)
+
+	scr.ImageSetConfig = sc
+
+	return
+}
+
+func getImageSetConfigFile(id string) (sc picamera.ImageSetConfig, err error) {
 	fpath := filepath.Join(config.C.ImageSetConfigsPath, id)
 	file, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		return
 	}
+
 	err = json.Unmarshal([]byte(file), &sc)
-	if sc.ID != id {
-		err = errors.New("")
+
+	return
+}
+
+func getImageSetConfigs() (scs []render.Renderer, e error) {
+	root := config.C.ImageSetConfigsPath
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			sc, err := getImageSetConfigFile(info.Name())
+			if err != nil {
+				e = err
+			}
+			if sc.ID == info.Name() {
+				scs = append(scs, imageSetConfigR{ImageSetConfig: sc})
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		e = err
 	}
 
 	return

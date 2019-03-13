@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"context"
@@ -21,6 +21,7 @@ type key string
 
 const imageSetKey key = "imageSetConfig"
 
+// imageSetConfigR struct is used for both request and response
 type imageSetConfigR struct {
 	ImageSetConfig picamera.ImageSetConfig `json:"imageSetConfig"`
 }
@@ -33,7 +34,7 @@ func (sr imageSetConfigR) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (a *api) saveImageSetConfig(w http.ResponseWriter, r *http.Request) {
+func (s *server) saveImageSetConfig(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var imageSetConfigR imageSetConfigR
 	if err = render.Bind(r, &imageSetConfigR); err != nil {
@@ -50,16 +51,16 @@ func (a *api) saveImageSetConfig(w http.ResponseWriter, r *http.Request) {
 	render.Render(w, r, imageSetConfigR)
 }
 
-func (a *api) capture(w http.ResponseWriter, r *http.Request) {
+func (s *server) capture(w http.ResponseWriter, r *http.Request) {
 	imageSetConfig := r.Context().Value(imageSetKey).(*picamera.ImageSetConfig)
 	imageSet := imageSetConfig.Generate()
-	if !a.captureInProgress {
+	if !s.captureInProgress {
 		go func() {
-			a.captureInProgress = !a.captureInProgress
+			s.captureInProgress = !s.captureInProgress
 			if err := imageSet.Capture(); err != nil {
-				a.captureErr = err
+				s.captureErr = err
 			}
-			a.captureInProgress = !a.captureInProgress
+			s.captureInProgress = !s.captureInProgress
 		}()
 	} else {
 		render.Render(w, r, &errResponse{
@@ -73,12 +74,12 @@ func (a *api) capture(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Capturing..."))
 }
 
-func (a *api) getImageSetConfig(w http.ResponseWriter, r *http.Request) {
+func (s *server) getImageSetConfig(w http.ResponseWriter, r *http.Request) {
 	imageSetConfig := r.Context().Value(imageSetKey).(picamera.ImageSetConfig)
 	render.Render(w, r, &imageSetConfigR{ImageSetConfig: imageSetConfig})
 }
 
-func (a *api) getImageSetConfigs(w http.ResponseWriter, r *http.Request) {
+func (s *server) getImageSetConfigs(w http.ResponseWriter, r *http.Request) {
 	scs, err := getImageSetConfigs()
 	if err != nil {
 		render.Render(w, r, errInternalServer(err))

@@ -1,11 +1,21 @@
 package main
 
 import (
+	"html/template"
 	"log"
-
-	"github.com/awfulbits/astro-raspicam/api"
+	"net/http"
 )
 
+type server struct {
+	tmpls             *template.Template
+	captureInProgress bool
+	captureErr        error
+}
+
 func main() {
-	log.Fatal(api.Start())
+	s := &server{}
+	// Preload templates because theres no reason not to
+	s.tmpls = template.Must(template.ParseGlob("templates/*"))
+
+	log.Fatal(http.ListenAndServe(":3333", s.createRouter()))
 }

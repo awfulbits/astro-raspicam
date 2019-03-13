@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/render"
 )
 
-func (a *api) createRouter() *chi.Mux {
+func (s *server) createRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Recoverer)
@@ -16,18 +16,24 @@ func (a *api) createRouter() *chi.Mux {
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
 	r.Route("/camera", func(r chi.Router) {
-		r.With(loadImageSetConfig).Post("/capture", a.capture) // POST /camera/imageSetConfigID/capture
+		r.With(loadImageSetConfig).Post("/capture", s.capture) // POST /camera/imageSetConfigID/capture
 
 		r.Route("/configs", func(r chi.Router) {
-			r.Get("/", a.getImageSetConfigs)  // GET /camera/configs
-			r.Post("/", a.saveImageSetConfig) // POST /camera/configs
+			r.Get("/", s.getImageSetConfigs)  // GET /camera/configs
+			r.Post("/", s.saveImageSetConfig) // POST /camera/configs
 
 			r.Route("/{imageSetConfigID}", func(r chi.Router) {
 				r.Use(loadImageSetConfig)       // Load the *ImageSetConfig on the request context
-				r.Get("/", a.getImageSetConfig) // GET /camera/configs/imageSetConfigID
+				r.Get("/", s.getImageSetConfig) // GET /camera/configs/imageSetConfigID
 			})
 		})
 
+	})
+
+	r.Get("/", s.getRoot)
+
+	r.Route("/module", func(r chi.Router) {
+		r.Get("/{tmpl}", s.getModule) // GET /module/tmpl
 	})
 
 	return r

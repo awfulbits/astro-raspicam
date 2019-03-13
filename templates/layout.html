@@ -1,0 +1,16 @@
+{{ define "layout" }}
+<!DOCTYPE html>
+<html lang="en">
+  {{ template "header" }}
+
+  <body>
+    {{ template "navbar" }}
+
+    <div class="container">
+        {{ template "home" }}
+    </div><!-- /.container -->
+
+    {{ template "footer" }}
+  </body>
+</html>
+{{ end }}
